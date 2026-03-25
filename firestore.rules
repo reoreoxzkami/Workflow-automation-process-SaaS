@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid, email, displayName, photoURL, role, subscription, createdAt
+    //
+    // Collection: agents
+    // Fields: id, ownerId, name, description, systemInstruction, model, tools, isPublic, pricePerCall, createdAt, updatedAt
+    //
+    // Collection: workflows
+    // Fields: id, ownerId, name, steps, status, createdAt
+    //
+    // Collection: usage_logs
+    // Fields: id, userId, agentId, workflowId, tokensUsed, cost, timestamp
+    //
+    // Collection: workflowRuns
+    // Fields: id, workflowId, workflowName, userId, status, steps, startTime, endTime, totalCost
+    //
+    // Collection: billing_history
+    // Fields: id, userId, amount, type, status, date, invoiceId
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "mi917506ko201207@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['user', 'admin'];
+    }
+
+    function isValidAgent(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'model']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.model is string;
+    }
+
+    function isValidWorkflowRun(data) {
+      return data.keys().hasAll(['workflowId', 'userId', 'status', 'startTime']) &&
+             data.workflowId is string && data.workflowId.size() < 100 &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.status in ['running', 'success', 'error'] &&
+             data.startTime is string &&
+             (!('workflowName' in data) || (data.workflowName is string && data.workflowName.size() < 200)) &&
+             (!('steps' in data) || (data.steps is list && data.steps.size() < 50)) &&
+             (!('endTime' in data) || (data.endTime is string)) &&
+             (!('totalCost' in data) || (data.totalCost is number));
+    }
+
+    // Rules
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if (isOwner(uid) && request.resource.data.role == resource.data.role) || isAdmin();
+    }
+
+    match /agents/{agentId} {
+      allow read: if isAuthenticated() && (resource.data.isPublic == true || isOwner(resource.data.ownerId));
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerId) && isValidAgent(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerId) && isValidAgent(request.resource.data);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerId);
+    }
+
+    match /workflows/{workflowId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerId);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerId);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerId);
+    }
+
+    match /usage_logs/{logId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update, delete: if false; // Logs are immutable
+    }
+
+    match /workflowRuns/{runId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidWorkflowRun(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidWorkflowRun(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /billing_history/{recordId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update, delete: if false; // Managed by server
+    }
+  }
+}

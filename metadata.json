@@ -1,0 +1,5 @@
+{
+  "name": "AgentFlow SaaS",
+  "description": "A comprehensive platform for building, automating, and monetizing AI agents and workflows.",
+  "requestFramePermissions": ["geolocation", "camera", "microphone", "notifications", "clipboard-read", "clipboard-write"]
+}

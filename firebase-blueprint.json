@@ -1,0 +1,142 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and subscription status",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "balance": { "type": "number", "description": "Current credit balance" },
+        "earnings": { "type": "number", "description": "Total earnings from agent usage" },
+        "geminiApiKey": { "type": "string" },
+        "gmailUser": { "type": "string" },
+        "gmailPass": { "type": "string" },
+        "notifyOnSuccess": { "type": "boolean" },
+        "notifyOnError": { "type": "boolean" },
+        "subscription": {
+          "type": "object",
+          "properties": {
+            "plan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+            "status": { "type": "string", "enum": ["active", "canceled", "past_due"] },
+            "currentPeriodEnd": { "type": "string", "format": "date-time" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Agent": {
+      "title": "AI Agent",
+      "description": "Configuration for an AI agent",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "systemInstruction": { "type": "string" },
+        "model": { "type": "string" },
+        "tools": { "type": "array", "items": { "type": "string" } },
+        "isPublic": { "type": "boolean" },
+        "pricePerCall": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "model"]
+    },
+    "Workflow": {
+      "title": "Automation Workflow",
+      "description": "A sequence of automated steps involving agents",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["trigger", "agent_call", "action"] },
+              "config": { "type": "object" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["active", "paused"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name"]
+    },
+    "UsageLog": {
+      "title": "Usage Log",
+      "description": "Records of agent or workflow usage for billing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "agentId": { "type": "string" },
+        "workflowId": { "type": "string" },
+        "tokensUsed": { "type": "number" },
+        "cost": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "timestamp"]
+    },
+    "WorkflowRun": {
+      "title": "Workflow Run",
+      "description": "Detailed logs of an individual workflow execution",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workflowId": { "type": "string" },
+        "workflowName": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["running", "success", "error"] },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "status": { "type": "string", "enum": ["pending", "success", "error"] },
+              "output": { "type": "string" },
+              "error": { "type": "string" },
+              "startTime": { "type": "string", "format": "date-time" },
+              "endTime": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "totalCost": { "type": "number" }
+      },
+      "required": ["workflowId", "userId", "status", "startTime"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/agents/{agentId}": {
+      "schema": "Agent",
+      "description": "AI agent configurations"
+    },
+    "/workflows/{workflowId}": {
+      "schema": "Workflow",
+      "description": "Automation workflows"
+    },
+    "/usage_logs/{logId}": {
+      "schema": "UsageLog",
+      "description": "Usage logs for billing and analytics"
+    },
+    "/workflowRuns/{runId}": {
+      "schema": "WorkflowRun",
+      "description": "Detailed logs of workflow executions"
+    }
+  }
+}
